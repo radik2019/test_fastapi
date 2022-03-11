@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+pydantic
+SQLAlchemy
+bcrypt
+cffi
+click
+fastapi-jwt-auth
+h11
+passlib
+pycparser
+PyJWT
+six
+starlette
+
