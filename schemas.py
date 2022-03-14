@@ -2,34 +2,24 @@ from typing import List, Optional, Dict
 from pydantic import Field
 from odmantic import AIOEngine, Model, ObjectId, Reference,EmbeddedModel
 from odmantic.field import Field
-# from motor.motor_asyncio import AsyncIOMotorClient
-# client = AsyncIOMotorClient("mongodb://localhost:27017")
-# engine = AIOEngine(motor_client=client, database="raduDB")
 
-class Appliances(Model):
-    brand: str
-    model: str
-    
-
-class Person(Model):
-    f_name: str
-    l_name: str
-    age: int
-    appliances: Optional[List[Appliances]] = None
-    class Config:
-        collection = "person"
 # *****************************************************
 
 class AuthDetails(Model):
     username: str
     password: str
 
+class AuthToken(Model):
+    access_token: str
+    refresh_token: str
+    user :AuthDetails = Reference()
+    
+# ********************************************************
 
 class User(Model):
     username: str
     password: str
     token: Optional[str]
-
     class Config:
         collection = "users"
 

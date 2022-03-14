@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict
 from fastapi import FastAPI, HTTPException, Header, Depends, Security
 from fastapi.security import HTTPBearer, APIKeyHeader, HTTPBasic, HTTPBasicCredentials,  HTTPAuthorizationCredentials
-from schemas import Appliances, Person, Room, House, Street, Municipality, AuthDetails
+from schemas import AuthToken, Room, House, Street, Municipality, AuthDetails
 import jwt
 from odmantic import AIOEngine, Model, ObjectId, Reference
 from pydantic import BaseModel
@@ -19,15 +19,29 @@ app = FastAPI()
 auth_handler = AuthHandler()
 users = []
 
+# auth_wrapper
 
-@app.get("/api/test")
-def test_call(
-    req: Request, 
-    auth: str = Header(None, alias="Authorization")):
-    dbg(dir(jwt))
-    dbg(jwt.get_unverified_header)
-    return req.method
+# @app.get("/api/refresh")
+# async def refresh_token(from_value: Optional[str] = None,
+#                             username=Depends(auth_handler.auth_wrapper),
+#                             auth: HTTPAuthorizationCredentials = Security(HTTPBearer())):
+#             # scheme='Bearer' credentials='eyJ0eXAiOiJKV1QqTWrFZt0gW5RT4'
+       
+#     clnt = await engine.find_one(AuthDetails, AuthDetails.username == self.decode_token(auth.credentials))
+#     clnt_token = await engine.find_one(AuthToken, AuthToken.id == clnt.id)
+#     dbg(clnt_token)
+#     dbg( self.decode_token(auth.credentials))
+#     # auth.credentials = clnt_token.refresh_token
 
+
+@app.get("/auth")
+async def get_auth_tok(from_value: Optional[str] = None):
+    q = () if not from_value else AuthToken.id == from_value
+
+    collection = await engine.find(AuthToken, q)
+    dbg(collection)
+    return collection
+    
 
 @app.post('/api/register', status_code=201)
 async def register(auth_details: AuthDetails):
@@ -53,9 +67,25 @@ async def login(auth_details: AuthDetails):
         if user_.username == auth_details.username:
             user = user_
             break
+    
     if (user is None) or (not auth_handler.verify_password(auth_details.password, user.password)):
         raise HTTPException(status_code=401, detail='Invalid username and/or password')
+ 
     token = auth_handler.encode_token(user.username)
+    ref_token = auth_handler.encode_refresh_token(user.username)
+
+    data =  AuthToken(**{
+        "access_token": token,
+        "refresh_token": ref_token,
+        "user": {
+            "username": user.username,
+            "password": user.password,
+            "id": ObjectId(user.id)
+        },
+        "id": ObjectId(user.id)
+    })
+
+    await engine.save(data)
     return { 'token': token }
 
 
@@ -65,30 +95,21 @@ async def create_municipality(data: Municipality):
     return inst
 
 ##############################################################################
-#                                                                            #
+#           encode_token                                                     #
 ##############################################################################
-
-
 
 
 @app.get("/api/municipalities", response_model=List[Municipality])
 async def list_municipality(from_value: Optional[str] = None,
                             username=Depends(auth_handler.auth_wrapper),
-                            Authorize: AuthJWT = Depends(),
-                            auth: str = Header(None, alias="Authorization")
+                            # Authorize: AuthJWT = Depends(),
+                            # auth: str = Header(None, alias="Authorization")
                             ):
-    # @app.get("/api/test")
-    # def test_call(
-    #     req: Request, 
-    #     auth: str = Header(None, alias="Authorization")):
-    #     dbg(dir(jwt))
-    #     dbg(jwt.get_unverified_header)
-    #     return req.method
-    dbg(auth)
+
     q = () if not from_value else Municipality.city_name == from_value
 
     collection = await engine.find(Municipality, q)
-    # dbg(auth_handler.update_token(username))
+    
     return collection
 
 @app.get("/api/municipalities/{municipality_id}", response_model=Municipality)
